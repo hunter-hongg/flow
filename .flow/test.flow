@@ -1,0 +1,19 @@
+workflow test doing
+  step build is
+    cd flow
+    go build -o ../target/fff
+  end
+  step a is 
+    echo hello 
+  end with 
+    deps [b], 
+  finish 
+  step b is 
+    echo hahaha 
+  end with 
+    deps [c], 
+  finish
+  step c is 
+    echo done 
+  end
+done

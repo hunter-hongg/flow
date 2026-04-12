@@ -1,9 +1,9 @@
 comp: 
   cd flowc && dune clean && dune build 
 cli: 
-  cd flow && go run main.go 
+  cd flow && go build -o ../target/flow
 exec: 
-  cd flowe && cargo run
+  cd flowe && cargo build && cp target/debug/flowe ../target/
 front: 
   cd flowd-front && pnpm dev
 back: 

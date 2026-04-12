@@ -3,5 +3,6 @@
   "ocaml.sandbox": {
     "kind": "opam",
     "switch": "default"
-  }
+  },
+  "java.configuration.updateBuildConfiguration": "automatic"
 }

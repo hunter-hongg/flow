@@ -4,8 +4,13 @@ Copyright © 2026 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"encoding/json"
+	"flow/internal/jsons"
 	"flow/pkg/color"
 	"flow/pkg/file"
+	"os"
+	"os/exec"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -28,8 +33,108 @@ to quickly create a Cobra application.`,
 		}
 		flowName := args[0]
 		color.Info("running flow " + flowName)
-		if !file.FileExists(".flow/" + flowName + ".flow") {
+		runflow := ".flow/" + flowName + ".flow"
+		if !file.FileExists(runflow) {
 			color.Error("flow " + flowName + " not found")
+		}
+		curpath := file.GetCurPath()
+		flowe := curpath + "/flowe"
+		flowc := curpath + "/flowc"
+		if (!file.FileExists(flowe)) || (!file.FileExists(flowc)) {
+			color.Error("binary is not installed properly")
+		}
+		compilation := exec.Command(flowc, runflow)
+		op, err := compilation.CombinedOutput()
+		if err != nil {
+			color.Error("compilation failed")
+		}
+		file := strings.TrimSpace(string(op))
+		context, err := os.ReadFile(file)
+		if err != nil {
+			color.Error("read file failed")
+		}
+		var p jsons.Plan
+		err = json.Unmarshal(context, &p)
+		if err != nil {
+			color.Error("unmarshal failed")
+		}
+		color.Info("executing workflow " + p.Workflow)
+		steps := p.Steps
+		/* DFS 检测Steps是否存在循环依赖 */
+		// 构建步骤名称到步骤的映射
+		stepMap := make(map[string]*jsons.Step)
+		for i := range steps {
+			stepMap[steps[i].Name] = &steps[i]
+		}
+
+		visited := make(map[string]bool)
+		recStack := make(map[string]bool)
+
+		var hasCycle bool
+		var dfs func(stepName string) bool
+		dfs = func(stepName string) bool {
+			if !visited[stepName] {
+				visited[stepName] = true
+				recStack[stepName] = true
+
+				step, exists := stepMap[stepName]
+				if exists {
+					for _, dep := range step.Deps {
+						if !visited[dep] {
+							if dfs(dep) {
+								return true
+							}
+						} else if recStack[dep] {
+							return true
+						}
+					}
+				}
+			}
+			recStack[stepName] = false
+			return false
+		}
+
+		for _, step := range steps {
+			if !visited[step.Name] {
+				if dfs(step.Name) {
+					hasCycle = true
+					break
+				}
+			}
+		}
+
+		if hasCycle {
+			color.Error("workflow has cyclic dependencies")
+			return
+		}
+
+		executed := make(map[string]bool)
+		for _, step := range steps {
+			executed[step.Name] = false
+		}
+		for len(steps) > 0 {
+			step := steps[0]
+			canexec := true
+			for _, dep := range step.Deps {
+				if !executed[dep] {
+					canexec = false
+					break
+				}
+			}
+			if !canexec {
+				steps = append(steps[1:], step)
+				continue
+			} else {
+				executed[step.Name] = true
+				steps = steps[1:]
+				color.Info("executing step " + step.Name)
+				execution := exec.Command(flowe, file, step.Name)
+				err = execution.Run()
+				if err != nil {
+					color.Error("execution failed")
+					return
+				}
+			}
 		}
 	},
 }

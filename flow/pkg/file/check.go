@@ -5,6 +5,12 @@ import (
 )
 
 func FileExists(filePath string) bool {
-	_, err := os.Stat(filePath)
-	return err == nil
+	s, err := os.Stat(filePath)
+	if err != nil {
+		return false
+	}
+	if s.IsDir() {
+		return false
+	}
+	return true
 }
