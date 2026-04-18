@@ -7,6 +7,6 @@ exec:
 front: 
   cd flowd-front && pnpm dev
 back: 
-  cd flowd-back && dotnet run 
+  cd flowd-back && go run main.go
 pyexec: 
   cd flowd && python3 main.py
