@@ -1,6 +1,3 @@
-/*
-Copyright © 2026 NAME HERE <EMAIL ADDRESS>
-*/
 package cmd
 
 import (
@@ -9,9 +6,11 @@ import (
 	"flow/internal/jsons"
 	"flow/pkg/color"
 	ffile "flow/pkg/file"
+	"fmt"
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/spf13/cobra"
@@ -28,11 +27,13 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		startTime := time.Now()
 		curpath := ffile.GetCurPath()
 		defer func() {
 			if r := recover(); r != nil {
 				// 任务执行失败，更新数据库
-				updateDatabase(ffile.GetCWD(), false)
+				updateDatabase(ffile.GetCWD(), false, time.Since(startTime))
+				fmt.Println(color.Magenta("Duration ") + time.Since(startTime).String())
 			}
 		}()
 
@@ -49,26 +50,30 @@ to quickly create a Cobra application.`,
 		}
 		flowe := curpath + "/flowe"
 		flowc := curpath + "/flowc"
-		if (!ffile.FileExists(flowe)) || 
+		if (!ffile.FileExists(flowe)) ||
 			(!ffile.FileExists(flowc)) {
+			fmt.Println(color.Magenta("Duration ") + time.Since(startTime).String())
 			color.Error("binary is not installed properly")
 		}
 		compilation := exec.Command(flowc, runflow)
 		op, err := compilation.CombinedOutput()
 		if err != nil {
-			updateDatabase(ffile.GetCWD(), false)
+			updateDatabase(ffile.GetCWD(), false, time.Since(startTime))
+			fmt.Println(color.Magenta("Duration ") + time.Since(startTime).String())
 			color.Error("compilation failed")
 			return
 		}
 		file := strings.TrimSpace(string(op))
 		context, err := os.ReadFile(file)
 		if err != nil {
+			fmt.Println(color.Magenta("Duration ") + time.Since(startTime).String())
 			color.Error("read file failed")
 			return
 		}
 		var p jsons.Plan
 		err = json.Unmarshal(context, &p)
 		if err != nil {
+			fmt.Println(color.Magenta("Duration ") + time.Since(startTime).String())
 			color.Error("unmarshal failed")
 			return
 		}
@@ -118,6 +123,7 @@ to quickly create a Cobra application.`,
 		}
 
 		if hasCycle {
+			fmt.Println(color.Magenta("Duration ") + time.Since(startTime).String())
 			color.Error("workflow has cyclic dependencies")
 			return
 		}
@@ -141,27 +147,31 @@ to quickly create a Cobra application.`,
 			} else {
 				executed[step.Name] = true
 				steps = steps[1:]
+				stepStart := time.Now()
 				color.Info("executing step " + step.Name)
 				execution := exec.Command(flowe, file, step.Name)
 				err = execution.Run()
 				if err != nil {
-					updateDatabase(ffile.GetCWD(), false)
+									updateDatabase(ffile.GetCWD(), false, time.Since(startTime))
+					fmt.Println(color.Magenta("Duration ") + time.Since(startTime).String())
 					color.Error("execution failed")
 					return
 				}
+				fmt.Println(color.Cyan("Step duration ") + step.Name + ": " + time.Since(stepStart).String())
 			}
 		}
 
 		// 任务执行成功，更新数据库
-		updateDatabase(ffile.GetCWD(), true)
+		updateDatabase(ffile.GetCWD(), true, time.Since(startTime))
+		fmt.Println(color.Green("Success ") + "workflow completed in " + time.Since(startTime).String())
 	},
 }
 
-func updateDatabase(dir string, success bool) {
+func updateDatabase(dir string, success bool, duration time.Duration) {
 	color.Info("connecting database")
 	// 打开数据库连接
-	db, err := sql.Open("sqlite3", 
-		ffile.GetCurPath() + "/flow.db")
+	db, err := sql.Open("sqlite3",
+		ffile.GetCurPath()+"/flow.db")
 	if err != nil {
 		color.Error("failed to open database: " + err.Error())
 		return
@@ -173,7 +183,8 @@ func updateDatabase(dir string, success bool) {
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		dir TEXT UNIQUE,
 		success INTEGER DEFAULT 0,
-		failure INTEGER DEFAULT 0
+		failure INTEGER DEFAULT 0,
+		last_duration REAL DEFAULT 0
 	)`)
 	if err != nil {
 		color.Error("failed to create table: " + err.Error())
@@ -188,19 +199,21 @@ func updateDatabase(dir string, success bool) {
 		return
 	}
 
+	durationSeconds := duration.Seconds()
+
 	if count > 0 {
 		// 目录存在，更新数据
 		if success {
-			_, err = db.Exec("UPDATE flow SET success = success + 1 WHERE dir = ?", dir)
+			_, err = db.Exec("UPDATE flow SET success = success + 1, last_duration = last_duration + ? WHERE dir = ?", durationSeconds, dir)
 		} else {
-			_, err = db.Exec("UPDATE flow SET failure = failure + 1 WHERE dir = ?", dir)
+			_, err = db.Exec("UPDATE flow SET failure = failure + 1, last_duration = last_duration + ? WHERE dir = ?", durationSeconds, dir)
 		}
 	} else {
 		// 目录不存在，插入数据
 		if success {
-			_, err = db.Exec("INSERT INTO flow (dir, success, failure) VALUES (?, 1, 0)", dir)
+			_, err = db.Exec("INSERT INTO flow (dir, success, failure, last_duration) VALUES (?, 1, 0, ?)", dir, durationSeconds)
 		} else {
-			_, err = db.Exec("INSERT INTO flow (dir, success, failure) VALUES (?, 0, 1)", dir)
+			_, err = db.Exec("INSERT INTO flow (dir, success, failure, last_duration) VALUES (?, 0, 1, ?)", dir, durationSeconds)
 		}
 	}
 
