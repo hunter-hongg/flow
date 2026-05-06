@@ -152,7 +152,7 @@ to quickly create a Cobra application.`,
 				execution := exec.Command(flowe, file, step.Name)
 				err = execution.Run()
 				if err != nil {
-									updateDatabase(ffile.GetCWD(), false, time.Since(startTime))
+					updateDatabase(ffile.GetCWD(), false, time.Since(startTime))
 					fmt.Println(color.Magenta("Duration ") + time.Since(startTime).String())
 					color.Error("execution failed")
 					return
