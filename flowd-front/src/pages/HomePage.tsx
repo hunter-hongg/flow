@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { Container, Typography, Box, Paper, Button, CircularProgress, Alert, useMediaQuery, useTheme } from '@mui/material';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceArea } from 'recharts';
 
 interface FlowData {
   id: number;
   dir: string;
   success: number;
   failure: number;
+  last_duration: number;
 }
 
 const HomePage: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  // const isTablet = useMediaQuery(theme.breakpoints.down('md'));
   
   const [flowData, setFlowData] = useState<FlowData[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -40,11 +40,20 @@ const HomePage: React.FC = () => {
     fetchFlowData();
   }, []);
 
+  const chartColors = {
+    success: theme.palette.success.main,
+    failure: theme.palette.error.main,
+    duration: theme.palette.primary.main,
+    text: theme.palette.text.secondary,
+    grid: theme.palette.divider,
+    tooltipBg: theme.palette.background.default,
+  };
+
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 4 } }}>
       <Box 
         sx={{ 
-          my: { xs: 2, sm: 4 }, 
+          my: { xs: 3, sm: 5 }, 
           display: 'flex', 
           flexDirection: { xs: 'column', sm: 'row' },
           justifyContent: { xs: 'center', sm: 'space-between' }, 
@@ -56,11 +65,9 @@ const HomePage: React.FC = () => {
         <Typography 
           variant={isMobile ? "h5" : "h4"} 
           component="h1" 
-          gutterBottom
           sx={{
             fontWeight: 700,
-            color: '#64b5f6',
-            marginBottom: { xs: '0.5rem', sm: '1rem' },
+            color: 'primary.main',
             textAlign: { xs: 'center', sm: 'left' }
           }}
         >
@@ -72,14 +79,11 @@ const HomePage: React.FC = () => {
           onClick={fetchFlowData}
           disabled={loading}
           sx={{
-            borderRadius: '8px',
-            padding: { xs: '0.5rem 1rem', sm: '0.75rem 1.5rem' },
-            fontWeight: 500,
-            boxShadow: '0 4px 12px rgba(100, 181, 246, 0.3)',
+            px: { xs: 2, sm: 3 },
+            py: { xs: 0.75, sm: 1 },
             transition: 'all 0.3s ease',
             '&:hover': {
-              transform: 'translateY(-2px)',
-              boxShadow: '0 6px 16px rgba(100, 181, 246, 0.4)'
+              transform: 'translateY(-1px)',
             },
             '&:disabled': {
               opacity: 0.6,
@@ -93,15 +97,14 @@ const HomePage: React.FC = () => {
       </Box>
       
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 10 }}>
-          <CircularProgress size={isMobile ? 40 : 60} thickness={4} />
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 12 }}>
+          <CircularProgress size={isMobile ? 40 : 56} thickness={3.5} />
         </Box>
       ) : error ? (
         <Alert 
           severity="error" 
           sx={{ 
             mt: 4, 
-            borderRadius: '8px',
             animation: 'fadeIn 0.5s ease-in-out'
           }}
         >
@@ -109,23 +112,18 @@ const HomePage: React.FC = () => {
         </Alert>
       ) : !flowData || flowData.length === 0 ? (
         <Paper 
-          elevation={4} 
           sx={{ 
-            p: { xs: 4, sm: 6 }, 
+            p: { xs: 5, sm: 7 }, 
             mt: 4,
-            borderRadius: '12px',
-            background: 'rgba(255, 255, 255, 0.05)',
-            backdropFilter: 'blur(10px)',
+            textAlign: 'center',
             animation: 'slideUp 0.5s ease-out',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
-            textAlign: 'center'
           }}
         >
           <Typography 
             variant={isMobile ? "h6" : "h5"} 
             sx={{
               fontWeight: 600,
-              color: 'rgba(255, 255, 255, 0.7)',
+              color: 'text.secondary',
               mb: 2
             }}
           >
@@ -134,7 +132,8 @@ const HomePage: React.FC = () => {
           <Typography 
             variant="body1" 
             sx={{
-              color: 'rgba(255, 255, 255, 0.5)',
+              color: 'text.secondary',
+              opacity: 0.7,
               mb: 3
             }}
           >
@@ -143,24 +142,18 @@ const HomePage: React.FC = () => {
         </Paper>
       ) : (
         <Paper 
-          elevation={4} 
           sx={{ 
-            p: { xs: 2, sm: 4 }, 
+            p: { xs: 2.5, sm: 4 }, 
             mt: 4,
-            borderRadius: '12px',
-            background: 'rgba(255, 255, 255, 0.05)',
-            backdropFilter: 'blur(10px)',
             animation: 'slideUp 0.5s ease-out',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)'
           }}
         >
           <Typography 
             variant={isMobile ? "h6" : "h5"} 
-            gutterBottom
             sx={{
               fontWeight: 600,
-              marginBottom: '1.5rem',
-              color: 'rgba(255, 255, 255, 0.9)'
+              mb: 2.5,
+              color: 'text.primary'
             }}
           >
             Flow Results
@@ -171,7 +164,22 @@ const HomePage: React.FC = () => {
                 data={flowData}
                 margin={{ top: 20, right: 30, left: 20, bottom: isMobile ? 150 : 130 }}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" />
+                <CartesianGrid
+                  stroke={chartColors.grid}
+                  strokeDasharray="3 3"
+                  vertical={false}
+                  horizontal={true}
+                />
+                {flowData.map((item, index) =>
+                  index % 2 === 0 ? (
+                    <ReferenceArea
+                      key={`band-${index}`}
+                      x1={item.dir}
+                      x2={item.dir}
+                      fill="rgba(255, 255, 255, 0.03)"
+                    />
+                  ) : null
+                )}
                 <XAxis
                   dataKey="dir"
                   tickFormatter={(dir) => dir.split('/').pop() || dir}
@@ -179,51 +187,87 @@ const HomePage: React.FC = () => {
                   textAnchor="end"
                   height={isMobile ? 140 : 120}
                   interval={0}
+                  tick={{ fill: chartColors.text, fontSize: isMobile ? 11 : 13 }}
+                  axisLine={{ stroke: chartColors.grid }}
+                  tickLine={{ stroke: chartColors.grid }}
                 />
-                <YAxis 
-                  allowDecimals={false} 
-                  tick={{ fill: 'rgba(255, 255, 255, 0.7)' }}
+                <YAxis
+                  yAxisId="left"
+                  allowDecimals={false}
+                  tick={{ fill: chartColors.text, fontSize: isMobile ? 11 : 13 }}
+                  axisLine={{ stroke: chartColors.grid }}
+                  tickLine={{ stroke: chartColors.grid }}
+                />
+                <YAxis
+                  yAxisId="right"
+                  orientation="right"
+                  tick={{ fill: chartColors.text, fontSize: isMobile ? 11 : 13 }}
+                  axisLine={{ stroke: chartColors.grid }}
+                  tickLine={{ stroke: chartColors.grid }}
                 />
                 <Tooltip
-                  formatter={(value, name) => [`${value}`, name]}
+                  formatter={(value, name) => {
+                    if (name === 'last_duration') {
+                      return [`${Number(value).toFixed(2)}s`, 'Last Duration'];
+                    }
+                    if (name === 'success') {
+                      return [value, 'Success'];
+                    }
+                    if (name === 'failure') {
+                      return [value, 'Failure'];
+                    }
+                    return [`${value}`, name];
+                  }}
                   labelFormatter={(label) => `Directory: ${label}`}
                   contentStyle={{
-                    backgroundColor: 'rgba(26, 26, 46, 0.9)',
-                    border: '1px solid rgba(100, 181, 246, 0.3)',
-                    borderRadius: '8px',
-                    color: 'rgba(255, 255, 255, 0.9)',
-                    fontSize: isMobile ? '0.8rem' : '1rem'
+                    backgroundColor: chartColors.tooltipBg,
+                    border: `1px solid ${theme.palette.divider}`,
+                    borderRadius: '10px',
+                    color: theme.palette.text.primary,
+                    fontSize: isMobile ? '0.8rem' : '0.9rem',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
                   }}
                 />
                 <Legend 
                   wrapperStyle={{
                     paddingTop: '1rem',
-                    fontSize: isMobile ? '0.8rem' : '1rem'
+                    fontSize: isMobile ? '0.8rem' : '0.9rem'
                   }}
                   formatter={(value) => {
                     if (value === 'Success') {
-                      return <span style={{ color: '#4caf50', fontWeight: '500' }}>{value}</span>;
+                      return <span style={{ color: chartColors.success, fontWeight: 500 }}>{value}</span>;
                     } else if (value === 'Failure') {
-                      return <span style={{ color: '#f44336', fontWeight: '500' }}>{value}</span>;
+                      return <span style={{ color: chartColors.failure, fontWeight: 500 }}>{value}</span>;
+                    } else if (value === 'Last Duration') {
+                      return <span style={{ color: chartColors.duration, fontWeight: 500 }}>{value}</span>;
                     }
-                    return <span style={{ color: 'rgba(255, 255, 255, 0.7)' }}>{value}</span>;
+                    return <span style={{ color: chartColors.text }}>{value}</span>;
                   }}
                 />
-                <Bar 
-                  dataKey="success" 
-                  fill="#4caf50" 
-                  name="Success" 
-                  maxBarSize={isMobile ? 30 : 50}
+                <Bar
+                  dataKey="success"
+                  fill={chartColors.success}
+                  name="Success"
+                  maxBarSize={isMobile ? 30 : 48}
                   radius={[4, 4, 0, 0]}
-                  animationDuration={1500}
+                  animationDuration={1200}
                 />
-                <Bar 
-                  dataKey="failure" 
-                  fill="#f44336" 
-                  name="Failure" 
-                  maxBarSize={isMobile ? 30 : 50}
+                <Bar
+                  dataKey="failure"
+                  fill={chartColors.failure}
+                  name="Failure"
+                  maxBarSize={isMobile ? 30 : 48}
                   radius={[4, 4, 0, 0]}
-                  animationDuration={1500}
+                  animationDuration={1200}
+                />
+                <Bar
+                  dataKey="last_duration"
+                  fill={chartColors.duration}
+                  name="Last Duration"
+                  yAxisId="right"
+                  maxBarSize={isMobile ? 30 : 48}
+                  radius={[4, 4, 0, 0]}
+                  animationDuration={1200}
                 />
               </BarChart>
             </ResponsiveContainer>

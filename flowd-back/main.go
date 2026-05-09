@@ -22,10 +22,11 @@ func GetCurPath() string {
 
 // FlowData 表示数据库中的flow数据
 type FlowData struct {
-	ID      int    `json:"id"`
-	Dir     string `json:"dir"`
-	Success int    `json:"success"`
-	Failure int    `json:"failure"`
+	ID           int     `json:"id"`
+	Dir          string  `json:"dir"`
+	Success      int     `json:"success"`
+	Failure      int     `json:"failure"`
+	LastDuration float64 `json:"last_duration"`
 }
 
 // initDB 初始化数据库，自动创建表（如果不存在）
@@ -47,7 +48,8 @@ func initDB() error {
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		dir TEXT NOT NULL,
 		success INTEGER DEFAULT 0,
-		failure INTEGER DEFAULT 0
+		failure INTEGER DEFAULT 0,
+		last_duration REAL DEFAULT 0
 	);`
 	_, err = db.Exec(createTableSQL)
 	return err
@@ -93,7 +95,7 @@ func main() {
 		defer db.Close()
 
 		// 查询所有flow数据
-		rows, err := db.Query("SELECT id, dir, success, failure FROM flow")
+		rows, err := db.Query("SELECT id, dir, success, failure, last_duration FROM flow")
 		if err != nil {
 			c.JSON(500, gin.H{
 				"error": "Failed to query database: " + err.Error(),
@@ -106,7 +108,7 @@ func main() {
 		var flowDataList []FlowData
 		for rows.Next() {
 			var data FlowData
-			if err := rows.Scan(&data.ID, &data.Dir, &data.Success, &data.Failure); err != nil {
+			if err := rows.Scan(&data.ID, &data.Dir, &data.Success, &data.Failure, &data.LastDuration); err != nil {
 				c.JSON(500, gin.H{
 					"error": "Failed to scan row: " + err.Error(),
 				})
